@@ -59,6 +59,8 @@ public class LRclassifier extends AbstractClassifier implements OptionHandler {
 			m_Instances = new Instances(instances);
 			instances = new Instances(m_Instances);
 		}
+		
+		System.out.println(m_Instances.numInstances() + ", " + (m_Instances.numAttributes()-1) + "," + m_Instances.numClasses());
 
 		// Remove instances with missing class
 		m_Instances.deleteWithMissingClass();
@@ -67,6 +69,11 @@ public class LRclassifier extends AbstractClassifier implements OptionHandler {
 			lr = new overparamLR(m_Instances, m_Regularization, m_Lambda, m_O);
 			lr.train();
 
+		} else if (m_S.equalsIgnoreCase("vanillavanillaLR")) {
+			
+			lr = new vanillavanillaLR(m_Instances, m_Regularization, m_Lambda, m_O);
+			lr.train();
+			
 		} else if (m_S.equalsIgnoreCase("vanillaLR")) {
 
 			if (m_ClassSpecification) {

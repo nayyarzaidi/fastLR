@@ -75,10 +75,34 @@ public class overparamLR extends LR {
 		return probs;
 	}
 
+	public void computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
+
+		for (int c = 0; c < nc; c++) {
+			gradients[c] += (-1) * (SUtils.ind(c, x_C) - probs[c]);
+		}
+
+		for (int u = 0; u < n; u++) {
+			if (!inst.isMissing(u)) {
+				double uval = inst.value(u);
+
+				for (int c = 0; c < nc; c++) {
+					if (isNumericTrue[u]) {
+						int pos = getNumericPosition(u, c);
+						gradients[pos] += (-1) * (SUtils.ind(c, x_C) - probs[c]) * uval;
+					} else {
+						int pos = getNominalPosition(u, (int) uval, c);
+						gradients[pos] += (-1) * (SUtils.ind(c, x_C) - probs[c]);
+					}
+				}
+			}
+		}
+
+	}
+
 	public void computeHessian(int i, double[] probs) {
 
 		for (int c1 = 0; c1 < nc; c1++) {
-			for (int c2 = 0; c2 < nc ; c2++) {
+			for (int c2 = 0; c2 < nc; c2++) {
 
 				if (c1 == c2) {
 					D[i][c1][c2] = (1 - probs[c1]) * probs[c1];
@@ -91,65 +115,9 @@ public class overparamLR extends LR {
 
 	}
 
-	public double computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
-
-		double  negLLReg = 0.0;
-
-		if (regularization) {
-
-			for (int c = 0; c < nc; c++) {
-				negLLReg += lambda/2 * parameters[c] * parameters[c];
-				gradients[c] += (-1) * (SUtils.ind(c, x_C) - probs[c]) + lambda * parameters[c];
-			}
-
-			for (int u = 0; u < n; u++) {
-				if (!inst.isMissing(u)) {
-					double uval = inst.value(u);
-
-					for (int c = 0; c < nc; c++) {
-						if (isNumericTrue[u]) {
-							int pos = getNumericPosition(u, c);
-							negLLReg += lambda/2 * parameters[pos] * parameters[pos];
-							gradients[pos] += (-1) * (SUtils.ind(c, x_C) - probs[c]) * uval + lambda * parameters[pos];
-						} else {
-							int pos = getNominalPosition(u, (int) uval, c);
-							negLLReg += lambda/2 * parameters[pos] * parameters[pos];
-							gradients[pos] += (-1) * (SUtils.ind(c, x_C) - probs[c]) + lambda * parameters[pos];
-						}
-					}
-				}
-			}
-
-		} else {
-
-			for (int c = 0; c < nc; c++) {
-				gradients[c] += (-1) * (SUtils.ind(c, x_C) - probs[c]);
-			}
-
-			for (int u = 0; u < n; u++) {
-				if (!inst.isMissing(u)) {
-					double uval = inst.value(u);
-
-					for (int c = 0; c < nc; c++) {
-						if (isNumericTrue[u]) {
-							int pos = getNumericPosition(u, c);
-							gradients[pos] += (-1) * (SUtils.ind(c, x_C) - probs[c]) * uval;
-						} else {
-							int pos = getNominalPosition(u, (int) uval, c);
-							gradients[pos] += (-1) * (SUtils.ind(c, x_C) - probs[c]);
-						}
-					}
-				}
-			}
-		}
-
-
-		return negLLReg;
-	}
-
 	@Override
 	public void computeHv(double[] s, double[] Hs) {
-		
+
 		double[] wa = new double[N * nc];
 		double[] wa2 = new double[N * nc];
 
@@ -170,9 +138,15 @@ public class overparamLR extends LR {
 
 				for (int u = 0; u < n; u++) {
 					double uval = inst.value(u);
-					int pos = getNominalPosition(u, (int) uval, c);
 
-					wa[i + offset[c]] += s[pos];
+					if (isNumericTrue[u]) {
+						int pos = getNumericPosition(u, c);
+						wa[i] += (s[pos] * uval);
+					} else {
+						int pos = getNominalPosition(u, (int) uval, c);
+						wa[i + offset[c]] += s[pos];
+					}
+
 				}
 
 			}
@@ -185,23 +159,30 @@ public class overparamLR extends LR {
 					wa2[i + offset[c1]] += (D[i][c1][c2] * wa[i + offset[c2]]);
 				}
 			}
-
 		}
 
 		//XTv(wa, Hs);
+		for (int i = 0; i < np; i++) {
+			Hs[i] = 0;
+		}
+
 		for (int i = 0; i < instances.numInstances(); i++) {
 			Instance inst = instances.instance(i);
-			int x_C = (int) inst.classValue();
 
-			Hs[x_C] += wa2[i + offset[x_C]];
+			for (int c = 0; c < nc; c++) {
 
-			for (int c = 0; c < nc; c++) { 		
+				Hs[c] += wa2[i + offset[c]];
 
 				for (int u = 0; u < n; u++) {
 					double uval = inst.value(u);
-					int pos = getNominalPosition(u, (int) uval, c);
 
-					Hs[pos] += wa2[i + offset[c]];
+					if (isNumericTrue[u]) {
+						int pos = getNumericPosition(u, c);
+						Hs[pos] += (wa2[i + offset[c]] * uval);
+					} else {
+						int pos = getNominalPosition(u, (int) uval, c);
+						Hs[pos] += wa2[i + offset[c]];
+					}
 				}
 
 			}
@@ -211,7 +192,7 @@ public class overparamLR extends LR {
 		for (int i = 0; i < np; i++) {
 			Hs[i] = s[i] + Hs[i];
 		}
-		
+
 	}
 
 }

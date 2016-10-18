@@ -11,6 +11,7 @@ import optimize.StopConditions;
 
 import optimize.Minimizer;
 import optimize.MinimizerGD;
+import optimize.MinimizerLBFGS;
 import optimize.MinimizerTron;
 import optimize.MinimizerCG;
 
@@ -48,9 +49,11 @@ public abstract class LR {
 
 	ObjectiveFunction function_to_optimize;
 
-	int maxIterations = 10000;	
+	private int maxIterations = 10000;	
 
 	private String name;
+
+	protected double  eps = 0.0001;
 
 	public LR(Instances instances, boolean regularization, double lambda, String m_O, String name) {
 
@@ -78,7 +81,7 @@ public abstract class LR {
 		public FunctionValues getValues(double[] params) {
 
 			double mLogNC = -Math.log(nc);
-			double negLogLikelihood = 0.0;
+			double f = 0.0;
 
 			for (int i = 0; i < np; i++) {
 				parameters[i] = params[i];
@@ -89,14 +92,42 @@ public abstract class LR {
 				Instance inst = instances.instance(i);
 				int x_C = (int) inst.classValue();
 				double[] probs = predict(inst);
-				negLogLikelihood += (mLogNC - probs[x_C]);
+				f += (mLogNC - probs[x_C]);
+				//f += -probs[x_C];
 				SUtils.exp(probs);
 
-				negLogLikelihood += computeGrad(inst, probs, x_C, gradients);
+				computeGrad(inst, probs, x_C, gradients);
+			}
+
+			if (regularization) {
+				f += regularizeFunction();
+
+				regularizeGradient(gradients);
 			}
 
 			//System.out.println(negLogLikelihood);
-			return new FunctionValues(negLogLikelihood, gradients);
+			return new FunctionValues(f, gradients);
+		}
+
+		@Override
+		public double fun() {
+
+			double mLogNC = -Math.log(nc);
+			double f = 0.0;
+
+			for (int i = 0; i < instances.numInstances(); i++) {
+				Instance inst = instances.instance(i);
+				int x_C = (int) inst.classValue();
+				double[] probs = predict(inst);
+				f += (mLogNC - probs[x_C]);
+				//f += - probs[x_C];
+			}
+
+			if (regularization) {
+				f += regularizeFunction();
+			}
+
+			return f;
 		}
 
 		@Override
@@ -104,7 +135,10 @@ public abstract class LR {
 
 			double mLogNC = -Math.log(nc);
 			double f = 0.0;
-			
+
+			double[] oldParameters = new double[np];
+			System.arraycopy(parameters, 0, oldParameters, 0, np);
+
 			for (int i = 0; i < np; i++) {
 				parameters[i] = point[i];
 			}
@@ -114,19 +148,26 @@ public abstract class LR {
 				int x_C = (int) inst.classValue();
 				double[] probs = predict(inst);
 				f += (mLogNC - probs[x_C]);
+				//f += - probs[x_C];
 			}
+
+			if (regularization) {
+				f += regularizeFunction();
+			}
+
+			System.arraycopy(oldParameters, 0, parameters, 0, np);
 
 			return f;
 		}
 
 		@Override
-		public void grad(double[] point, double[] grad) {
+		public void grad(double[] grad) {
 
 			double mLogNC = -Math.log(nc);
 			double negLogLikelihood = 0.0;
-			
+
 			for (int i = 0; i < np; i++) {
-				parameters[i] = point[i];
+				grad[i] = 0;
 			}
 
 			for (int i = 0; i < instances.numInstances(); i++) {
@@ -134,11 +175,16 @@ public abstract class LR {
 				int x_C = (int) inst.classValue();
 				double[] probs = predict(inst);
 				negLogLikelihood += (mLogNC - probs[x_C]);
+				//negLogLikelihood += -probs[x_C];
 				SUtils.exp(probs);
 
-				negLogLikelihood += computeGrad(inst, probs, x_C, grad);
-				
+				computeGrad(inst, probs, x_C, grad);
+
 				computeHessian(i, probs);
+			}
+
+			if (regularization) {
+				regularizeGradient(grad);
 			}
 
 		}
@@ -156,10 +202,23 @@ public abstract class LR {
 	};
 
 	public abstract double[] predict(Instance inst);
-	public abstract double computeGrad(Instance inst, double[] probs, int x_C, double[] gradients);
+	public abstract void computeGrad(Instance inst, double[] probs, int x_C, double[] gradients);
 	public abstract void computeHessian(int i, double[] probs);
 	public abstract void computeHv(double[] s, double[] Hs);
 
+	public double regularizeFunction() {
+		double f = 0.0;
+		for (int i = 0; i < np; i++) {
+			f += lambda/2 * parameters[i] * parameters[i];
+		}
+		return f;
+	}
+
+	public void regularizeGradient(double[] grad) {
+		for (int i = 0; i < np; i++) {
+			grad[i] += lambda * parameters[i];
+		}
+	}
 
 	public void train() {
 
@@ -234,19 +293,36 @@ public abstract class LR {
 
 			if (is_Verbose) {
 				System.out.print("fx_Tron_" + name + " = [");
-				result = alg.run(function_to_optimize, parameters);
+				result = alg.run(function_to_optimize, parameters, eps);
 				System.out.println("];");
 				System.out.println("NoIter = " + result.iterationsInfo.iterations);
 				System.out.println();
 			} else {
-				result = alg.run(function_to_optimize, parameters);
+				result = alg.run(function_to_optimize, parameters, eps);
+				System.out.println("NoIter = " + result.iterationsInfo.iterations);
+			}
+
+		}  else if (m_O.equalsIgnoreCase("LBFGS")) {
+
+			MinimizerLBFGS alg = new MinimizerLBFGS();
+			alg.setMaxIterations(maxIterations);
+			Result result;	
+
+			if (is_Verbose) {
+				System.out.print("fx_LBFGS_" + name + " = [");
+				result = alg.run(function_to_optimize, parameters, eps);
+				System.out.println("];");
+				System.out.println("NoIter = " + result.iterationsInfo.iterations);
+				System.out.println();
+			} else {
+				result = alg.run(function_to_optimize, parameters, eps);
 				System.out.println("NoIter = " + result.iterationsInfo.iterations);
 			}
 
 		} else {
-			System.out.println("Only QN, CG, GD and Tron are implemented");
+			System.out.println("Only QN, CG, GD, Tron, LBFGS are implemented");
 			System.exit(-1);
-		}
+		} 
 
 	}
 
@@ -274,5 +350,19 @@ public abstract class LR {
 		return localStartPerAtt[u] + ((paramsPerAtt[u] * c) + uval);
 	}
 
+	public double getEps() {
+		return eps;
+	}
+
+	public void setEps(double eps) {
+		this.eps = eps;
+	}
+	
+	public int getMaxIterations() {
+		return maxIterations;
+	}
+	public void setMaxIterations(int maxIterations) {
+		this.maxIterations = maxIterations;
+	}
 
 }

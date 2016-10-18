@@ -144,8 +144,7 @@ public class vanillaWC extends LR {
 		return probs;
 	}
 
-
-	public double computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
+	public void computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
 
 		double  negReg = 0.0;
 
@@ -188,7 +187,6 @@ public class vanillaWC extends LR {
 			}
 		}
 
-		return negReg;
 	}
 
 	@Override
@@ -201,6 +199,22 @@ public class vanillaWC extends LR {
 	public void computeHv(double[] s, double[] Hs) {
 		// TODO Auto-generated method stub
 		
+	}
+	
+	@Override
+	public double regularizeFunction() {
+		double f = 0.0;
+		for (int i = 0; i < np; i++) {
+			f += lambda/2 * parameters[i] * parameters[i];
+		}
+		return f;
+	}
+
+	@Override
+	public void regularizeGradient(double[] grad) {
+		for (int i = 0; i < np; i++) {
+			grad[i] += lambda * parameters[i];
+		}
 	}
 
 

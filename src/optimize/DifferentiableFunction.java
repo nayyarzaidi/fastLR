@@ -12,9 +12,10 @@ public interface DifferentiableFunction {
 	 */
 	FunctionValues getValues(double[] point);
 	
+	double fun();
 	double fun(double[] point);
 	
-	void grad(double[] point, double[] grad);
+	void grad( double[] grad);
 	
 	void Hv(double[] d, double[] Hd);
 	

@@ -37,6 +37,10 @@ public class overparamWC extends LR {
 		System.out.println("Model is of Size: " + np);
 		Arrays.fill(parameters, 0.0);
 		Arrays.fill(counts, 0.0);
+
+		if (m_O.equalsIgnoreCase("Tron")) {
+			D = new double[N][nc][nc];
+		}
 	}
 
 	public void train() {
@@ -99,63 +103,125 @@ public class overparamWC extends LR {
 		return probs;
 	}
 
-	@Override
-	public void computeHessian(int i, double[] probs) {
-		// TODO Auto-generated method stub
-		
-	}
-	
-	public double computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
+	public void computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
 
-		double  negLLReg = 0.0;
+		for (int c = 0; c < nc; c++) {
+			gradients[c] -= (SUtils.ind(c, x_C) - probs[c]) *  probabilities[c];
+		}
 
-		if (regularization) {
+		for (int u = 0; u < n; u++) {
+			if (!inst.isMissing(u)) {
+				double uval = inst.value(u);
 
-			for (int c = 0; c < nc; c++) {
-				negLLReg += lambda/2 * (parameters[c] * probabilities[c] * parameters[c] * probabilities[c]);
-				gradients[c] += (-1) * (SUtils.ind(c, x_C) - probs[c]) * probabilities[c] 
-						+ (lambda * parameters[c] * probabilities[c]);
-			}
-
-			for (int u = 0; u < n; u++) {
-				if (!inst.isMissing(u)) {
-					double uval = inst.value(u);
-
-					for (int c = 0; c < nc; c++) {
-						int pos = getNominalPosition(u, (int) uval, c);
-						negLLReg += lambda/2 * (parameters[pos] * probabilities[pos] * parameters[pos] * probabilities[pos]);
-						gradients[pos] += (-1) * (SUtils.ind(c, x_C) - probs[c]) * probabilities[pos] 
-								+ (lambda * parameters[pos] * probabilities[pos]);
-					}
-				}
-			}
-
-		} else {
-
-			for (int c = 0; c < nc; c++) {
-				gradients[c] -= (SUtils.ind(c, x_C) - probs[c]) *  probabilities[c];
-			}
-
-			for (int u = 0; u < n; u++) {
-				if (!inst.isMissing(u)) {
-					double uval = inst.value(u);
-
-					for (int c = 0; c < nc; c++) {
-						int pos = getNominalPosition(u, (int) uval, c);
-						gradients[pos] -= (SUtils.ind(c, x_C) - probs[c]) * probabilities[pos];
-					}
+				for (int c = 0; c < nc; c++) {
+					int pos = getNominalPosition(u, (int) uval, c);
+					gradients[pos] -= (SUtils.ind(c, x_C) - probs[c]) * probabilities[pos];
 				}
 			}
 		}
 
+	}
 
-		return negLLReg;
+	@Override
+	public void computeHessian(int i, double[] probs) {
+		for (int c1 = 0; c1 < nc; c1++) {
+			for (int c2 = 0; c2 < nc; c2++) {
+
+				if (c1 == c2) {
+					D[i][c1][c2] = (1 - probs[c1]) * probs[c1];
+				} else {
+					D[i][c1][c2] = -probs[c1] * probs[c2];
+				}
+
+			}			
+		}
+
 	}
 
 	@Override
 	public void computeHv(double[] s, double[] Hs) {
-		// TODO Auto-generated method stub
-		
+		double[] wa = new double[N * nc];
+		double[] wa2 = new double[N * nc];
+
+		int[] offset = new int[nc];
+		int index = 0;
+		for (int c = 0; c < nc; c++) {
+			offset[c] = index;
+			index += N;
+		}
+
+		//Xv(s, wa);
+		for (int i = 0; i < instances.numInstances(); i++) {
+			Instance inst = instances.instance(i);
+
+			for (int c = 0; c < nc; c++) {
+
+				wa[i + offset[c]] += (s[c] * probabilities[c]);
+
+				for (int u = 0; u < n; u++) {
+					double uval = inst.value(u);
+
+					int pos = getNominalPosition(u, (int) uval, c);
+					wa[i + offset[c]] += (s[pos] * probabilities[pos]);
+				}
+
+			}
+		}
+
+		//D[i] * wa[i];
+		for (int i = 0; i < instances.numInstances(); i++) {
+			for (int c1 = 0; c1 < nc; c1++) {					
+				for (int c2 = 0; c2 < nc; c2++) {
+					wa2[i + offset[c1]] += (D[i][c1][c2] * wa[i + offset[c2]]);
+				}
+			}
+		}
+
+		//XTv(wa, Hs);
+		for (int i = 0; i < np; i++) {
+			Hs[i] = 0;
+		}
+
+		for (int i = 0; i < instances.numInstances(); i++) {
+			Instance inst = instances.instance(i);
+
+			for (int c = 0; c < nc; c++) {
+
+				Hs[c] += (wa2[i + offset[c]] * probabilities[c]);
+
+				for (int u = 0; u < n; u++) {
+					double uval = inst.value(u);
+
+					int pos = getNominalPosition(u, (int) uval, c);
+					Hs[pos] += (wa2[i + offset[c]] * probabilities[pos]);
+				}
+
+			}
+		}	
+
+		//s[i] + Hs[i];
+		for (int i = 0; i < np; i++) {
+			Hs[i] = s[i] + Hs[i];
+		}
+
+	}
+	
+	@Override
+	public double regularizeFunction() {
+		double f = 0.0;
+		for (int i = 0; i < np; i++) {
+			//f += lambda/2 * (parameters[i] * probabilities[i]) * (parameters[i] * probabilities[i]);
+			f += lambda/2 * (parameters[i]) * (parameters[i]);
+		}
+		return f;
+	}
+
+	@Override
+	public void regularizeGradient(double[] grad) {
+		for (int i = 0; i < np; i++) {
+			//grad[i] += (lambda * parameters[i]  * probabilities[i]);
+			grad[i] += (lambda * parameters[i]);
+		}
 	}
 
 }

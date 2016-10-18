@@ -95,85 +95,62 @@ public class vanillaLR_class extends LR {
 		return probs;
 	}
 
-	public double computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
+	public void computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
 
-		double  negReg = 0.0;
-
-		if (regularization) {
-
-			for (int c = 0; c < nc; c++) {
-				int newc = classIndices[c];
-				if (newc != -1) {
-					negReg += lambda/2 * parameters[newc] * parameters[newc];
-					gradients[newc] += (-1) * (SUtils.ind(c, x_C) - probs[c]) + lambda * parameters[newc];
-				}
+		for (int c = 0; c < nc; c++) {
+			int newc = classIndices[c];
+			if (newc != -1) {
+				gradients[newc] -= (SUtils.ind(c, x_C) - probs[c]);
 			}
-
-			for (int u = 0; u < n; u++) {
-				double uval = inst.value(u);
-
-				for (int c = 0; c < nc; c++) {
-					int newc = classIndices[c];
-					if (newc != -1) {
-						if (isNumericTrue[u]) {
-							int pos = getNumericPosition(u, newc);
-							negReg += lambda/2 * parameters[pos] * parameters[pos];
-							gradients[pos] += (-1) * (SUtils.ind(c, x_C) - probs[c]) * uval + lambda * parameters[pos];
-						} else {
-							if (uval != paramsPerAtt[u]) {
-								int pos = getNominalPosition(u, (int) uval, newc);
-								negReg += lambda/2 * parameters[pos] * parameters[pos];
-								gradients[pos] += (-1) * (SUtils.ind(c, x_C) - probs[c]) + lambda * parameters[pos];
-							}
-						}
-					}
-				}
-			}
-
-		} else {
-
-			for (int c = 0; c < nc; c++) {
-				int newc = classIndices[c];
-				if (newc != -1) {
-					gradients[newc] -= (SUtils.ind(c, x_C) - probs[c]);
-				}
-			}
-
-			for (int u = 0; u < n; u++) {
-				double uval = inst.value(u);
-
-				for (int c = 0; c < nc; c++) {
-					int newc = classIndices[c];
-					if (newc != -1) {
-						if (isNumericTrue[u]) {
-							int pos = getNumericPosition(u, newc);
-							gradients[pos] -= (SUtils.ind(c, x_C) - probs[c]) * uval;
-						} else {
-							if (uval != paramsPerAtt[u]) {
-								int pos = getNominalPosition(u, (int) uval, newc);
-								gradients[pos] -= (SUtils.ind(c, x_C) - probs[c]);
-							}
-						}
-					}
-				}
-			}
-
 		}
 
+		for (int u = 0; u < n; u++) {
+			double uval = inst.value(u);
 
-		return negReg;
+			for (int c = 0; c < nc; c++) {
+				int newc = classIndices[c];
+				if (newc != -1) {
+					if (isNumericTrue[u]) {
+						int pos = getNumericPosition(u, newc);
+						gradients[pos] -= (SUtils.ind(c, x_C) - probs[c]) * uval;
+					} else {
+						if (uval != paramsPerAtt[u]) {
+							int pos = getNominalPosition(u, (int) uval, newc);
+							gradients[pos] -= (SUtils.ind(c, x_C) - probs[c]);
+						}
+					}
+				}
+			}
+		}
+
 	}
 
 	@Override
 	public void computeHessian(int i, double[] probs) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
 	public void computeHv(double[] s, double[] Hs) {
 		// TODO Auto-generated method stub
-		
+
+	}
+	
+	@Override
+	public double regularizeFunction() {
+		double f = 0.0;
+		for (int i = 0; i < np; i++) {
+			f += lambda/2 * parameters[i] * parameters[i];
+		}
+		return f;
+	}
+
+	@Override
+	public void regularizeGradient(double[] grad) {
+		for (int i = 0; i < np; i++) {
+			grad[i] += lambda * parameters[i];
+		}
 	}
 
 }

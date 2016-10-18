@@ -35,7 +35,7 @@ class QuadraticFun implements DifferentiableFunction{
 	}
 
 	@Override
-	public void grad(double[] point, double[] grad) {
+	public void grad(double[] grad) {
 		// TODO Auto-generated method stub
 		
 	}
@@ -48,6 +48,12 @@ class QuadraticFun implements DifferentiableFunction{
 
 	@Override
 	public int get_nr_variable() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public double fun() {
 		// TODO Auto-generated method stub
 		return 0;
 	}

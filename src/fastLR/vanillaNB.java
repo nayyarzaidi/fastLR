@@ -101,23 +101,32 @@ public class vanillaNB extends LR {
 		return probs;
 	}
 
-	public double computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
+	@Override
+	public void computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
 		// Nothing here
-		return 0;
 	}
 
 	@Override
 	public void computeHessian(int i, double[] probs) {
 		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void computeHv(double[] s, double[] Hs) {
 		// TODO Auto-generated method stub
-		
 	}
 
+	@Override
+	public double regularizeFunction() {
+		// Nothing here
+		return 0;
+	}
+
+	@Override
+	public void regularizeGradient(double[] grad) {
+		// Nothing here
+	}
+	
 }
 
 

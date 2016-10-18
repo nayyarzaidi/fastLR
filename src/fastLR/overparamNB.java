@@ -93,10 +93,10 @@ public class overparamNB extends LR {
 		SUtils.normalizeInLogDomain(probs);
 		return probs;
 	}
-
-	public double computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
+	
+	@Override
+	public void computeGrad(Instance inst, double[] probs, int x_C, double[] gradients) {
 		// Nothing here
-		return 0;
 	}
 
 	@Override
@@ -109,6 +109,17 @@ public class overparamNB extends LR {
 	public void computeHv(double[] s, double[] Hs) {
 		// TODO Auto-generated method stub
 		
+	}
+	
+	@Override
+	public double regularizeFunction() {
+		// Nothing here
+		return 0;
+	}
+
+	@Override
+	public void regularizeGradient(double[] grad) {
+		// Nothing here
 	}
 
 }

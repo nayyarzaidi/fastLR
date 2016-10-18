@@ -7,14 +7,11 @@ public class MinimizerTron {
 	// Max iterations
 	private int maxIterations = 1000;
 
-	private FunctionValues fv = null;
 	private int totalFunctionEvaluations = 0;	 
 
 	private boolean verbose = true;
 
-	private final double  eps =0.01;
-
-	public Result run(DifferentiableFunction fun_obj, double[] w) {
+	public Result run(DifferentiableFunction fun_obj, double[] w, double eps) {
 
 		// Parameters for updating the iterates.
 		double eta0 = 1e-4, eta1 = 0.25, eta2 = 0.75;
@@ -35,8 +32,8 @@ public class MinimizerTron {
 		for (i = 0; i < n; i++)
 			w[i] = 0;
 
-		f = fun_obj.fun(w);
-		fun_obj.grad(w, g);
+		f = fun_obj.fun();
+		fun_obj.grad(g);
 		delta = euclideanNorm(g);
 
 		double gnorm1 = delta;
@@ -48,6 +45,7 @@ public class MinimizerTron {
 		iter = 1;
 
 		while (iter <= maxIterations && search != 0) {
+
 			cg_iter = trcg(fun_obj, delta, g, s, r);
 
 			System.arraycopy(w, 0, w_new, 0, n);
@@ -82,19 +80,23 @@ public class MinimizerTron {
 			else
 				delta = Math.max(delta, Math.min(alpha * snorm, sigma3 * delta));
 
-			info("iter %2d act %5.3e pre %5.3e delta %5.3e f %5.3e |g| %5.3e CG %3d%n", iter, actred, prered, delta, f, gnorm, cg_iter);
-
+			if (verbose)
+				info("iter %2d act %5.3e pre %5.3e delta %5.3e f %5.3e |g| %5.3e CG %3d%n", iter, actred, prered, delta, f, gnorm, cg_iter);
+			
 			if (actred > eta0 * prered) {
 				iter++;
+				
+				System.out.print(f + ", ");
+				
 				System.arraycopy(w_new, 0, w, 0, n);
 				f = fnew;
-				fun_obj.grad(w, g);
+				fun_obj.grad(g);
 
 				gnorm = euclideanNorm(g);
 				if (gnorm <= eps * gnorm1) 
 					break;
 			}
-			
+
 			if (f < -1.0e+32) {
 				info("WARNING: f < -1.0e+32%n");
 				break;
@@ -107,12 +109,14 @@ public class MinimizerTron {
 				info("WARNING: actred and prered too small%n");
 				break;
 			}
+			
 		}
-		
-		System.out.println("All Done");
+
+		if (verbose)
+			System.out.println("All Done");
 
 		IterationsInfo info = null;
-		info = new IterationsInfo(i, totalFunctionEvaluations, IterationsInfo.StopType.MAX_ITERATIONS, null);	
+		info = new IterationsInfo(iter-1, totalFunctionEvaluations, IterationsInfo.StopType.MAX_ITERATIONS, null);	
 
 		Result result = new Result(w, f, g, info);
 		return result;
@@ -137,8 +141,12 @@ public class MinimizerTron {
 
 		while (true) {
 
-			if (euclideanNorm(r) <= cgtol) 
+			if (euclideanNorm(r) <= cgtol) {
+				if (verbose)
+					info("----- EuclideanNorm(r) <= cgtol -----%n");
+				
 				break;
+			}
 
 			cg_iter++;
 			fun_obj.Hv(d, Hd);
@@ -146,9 +154,12 @@ public class MinimizerTron {
 			double alpha = rTr / dot(d, Hd);
 			daxpy(alpha, d, s);
 			if (euclideanNorm(s) > delta) {
-				info("---------------------------------%n");
-				info("cg reaches trust region boundary%n");
-				info("---------------------------------%n");
+				
+				if (verbose) {
+					info("---------------------------------%n");
+					info("cg reaches trust region boundary%n");
+					info("---------------------------------%n");
+				}
 				
 				alpha = -alpha;
 				daxpy(alpha, d, s);

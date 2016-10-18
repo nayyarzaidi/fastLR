@@ -7,16 +7,20 @@ import Utils.SUtils;
 import weka.core.Instance;
 import weka.core.Instances;
 
-public class vanillaLR extends LR {
+public class vanillavanillaLR extends LR {
 
-	public vanillaLR(Instances instances, boolean regularization, double lambda, String m_O) {
+	public vanillavanillaLR(Instances instances, boolean regularization, double lambda, String m_O) {
 
-		super(instances, regularization, lambda,  m_O, "v");
+		super(instances, regularization, lambda,  m_O, "vv");
 
 		for (int u = 0; u < n; u++) {
 			if (instances.attribute(u).isNominal()) {
 				isNumericTrue[u] = false;
 				paramsPerAtt[u] = instances.attribute(u).numValues();
+
+				if (paramsPerAtt[u] != 1)
+					paramsPerAtt[u] = paramsPerAtt[u] - 1;
+
 			} else if (instances.attribute(u).isNumeric()) {
 				isNumericTrue[u] = true;
 				paramsPerAtt[u] = 1;
@@ -67,8 +71,10 @@ public class vanillaLR extends LR {
 						int pos = getNumericPosition(u, c);
 						probs[c] += (parameters[pos] * uval);
 					} else {
-						int pos = getNominalPosition(u, (int) uval, c);
-						probs[c] += parameters[pos];
+						if (uval != paramsPerAtt[u]) {
+							int pos = getNominalPosition(u, (int) uval, c);
+							probs[c] += parameters[pos];
+						}
 					}
 				}
 			}
@@ -93,8 +99,10 @@ public class vanillaLR extends LR {
 						int pos = getNumericPosition(u, c);
 						gradients[pos] -= (SUtils.ind(c, x_C) - probs[c]) * uval;
 					} else {
-						int pos = getNominalPosition(u, (int) uval, c);
-						gradients[pos] -= (SUtils.ind(c, x_C) - probs[c]);
+						if (uval != paramsPerAtt[u]) {
+							int pos = getNominalPosition(u, (int) uval, c);
+							gradients[pos] -= (SUtils.ind(c, x_C) - probs[c]);
+						}
 					}
 				}
 			}
@@ -105,9 +113,7 @@ public class vanillaLR extends LR {
 	public void computeHessian(int i, double[] probs) {
 
 		if (nc == 2) {
-
 			Dbin[i] = (1 - probs[0]) * probs[0];
-
 		} else {
 
 			for (int c1 = 0; c1 < nc - 1; c1++) {
@@ -154,8 +160,10 @@ public class vanillaLR extends LR {
 						int pos = getNumericPosition(u, c);
 						wa[i] += (s[pos] * uval);
 					} else {
-						int pos = getNominalPosition(u, (int) uval, c);
-						wa[i + offset[c]] += s[pos];
+						if (uval != paramsPerAtt[u]) {
+							int pos = getNominalPosition(u, (int) uval, c);
+							wa[i + offset[c]] += s[pos];
+						}
 					}
 
 				}
@@ -171,7 +179,7 @@ public class vanillaLR extends LR {
 
 				for (int c1 = 0; c1 < nc - 1; c1++) {					
 					for (int c2 = 0; c2 < nc - 1; c2++) {
-						wa2[i + offset[c1]] += ( D[i][c1][c2] * wa[i + offset[c2]]);
+						wa2[i + offset[c1]] += (D[i][c1][c2] * wa[i + offset[c2]]);
 					}
 				}
 
@@ -197,8 +205,10 @@ public class vanillaLR extends LR {
 						int pos = getNumericPosition(u, c);
 						Hs[pos] += (wa2[i + offset[c]] * uval);
 					} else {
-						int pos = getNominalPosition(u, (int) uval, c);
-						Hs[pos] += wa2[i + offset[c]];
+						if (uval != paramsPerAtt[u]) {
+							int pos = getNominalPosition(u, (int) uval, c);
+							Hs[pos] += wa2[i + offset[c]];
+						}
 					}
 
 				}
