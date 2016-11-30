@@ -60,7 +60,7 @@ public class LRclassifier extends AbstractClassifier implements OptionHandler {
 			instances = new Instances(m_Instances);
 		}
 		
-		System.out.println(m_Instances.numInstances() + ", " + (m_Instances.numAttributes()-1) + "," + m_Instances.numClasses());
+		System.out.println("N = " + m_Instances.numInstances() + ", n  = " + (m_Instances.numAttributes()-1) + " c = ," + m_Instances.numClasses());
 
 		// Remove instances with missing class
 		m_Instances.deleteWithMissingClass();

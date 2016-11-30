@@ -45,6 +45,9 @@ public class MinimizerTron {
 		iter = 1;
 
 		while (iter <= maxIterations && search != 0) {
+			
+			if (iter == 7) 
+				System.out.println("Got the Gringo");
 
 			cg_iter = trcg(fun_obj, delta, g, s, r);
 
